@@ -1,0 +1,138 @@
+{
+    include "registries/aaosa.hocon"
+
+    "metadata": {
+        "sample_queries": [
+            "Screen candidates for Data Scientist and recommend top 3",
+            "Run blind hiring for Software Engineer and schedule top 5 interviews",
+            "Process candidates for AI Researcher role and reveal top 3",
+            "Execute blind hiring pipeline for Cybersecurity Analyst top 4"
+        ]
+    },
+
+    include "config/llm_config.hocon",
+
+    "tools": [
+        {
+            "name": "RecruitingOrchestrator",
+            "function": {
+                "description": "Orchestrates the full blind hiring pipeline",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "job_role": {
+                            "type": "string",
+                            "description": "The job role to screen candidates for"
+                        },
+                        "top_n": {
+                            "type": "string",
+                            "description": "Number of top candidates to approve, e.g. 3"
+                        }
+                    },
+                    "required": ["job_role"]
+                }
+            },
+            "instructions": "You are a recruiting orchestrator managing a blind hiring pipeline. Given a job_role and optional top_n (default 3), run the pipeline in this exact order: 1) Call ResumeAnonymizerTool to fetch and anonymize candidates. 2) Pass anonymized candidates to RankingAgent to rank them. 3) Pass the ranked candidate_ids and top_n to IdentityResolverTool. 4) Pass approved candidates to SchedulingAgent. Present a final summary of ranked candidates and proposed interview slots.",
+            "tools": [
+                "ResumeAnonymizerTool",
+                "RankingAgent",
+                "IdentityResolverTool",
+                "SchedulingAgent"
+            ]
+        },
+        {
+            "name": "ResumeAnonymizerTool",
+            "class": "blindspot.resume_anonymizer.ResumeAnonymizerTool",
+            "function": {
+                "description": "Fetches candidates from database and anonymizes identities. Names go to sly_data only.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "job_role": {
+                            "type": "string",
+                            "description": "Job role to fetch candidates for"
+                        }
+                    },
+                    "required": ["job_role"]
+                }
+            }
+        },
+        {
+            "name": "RankingAgent",
+            "function": {
+                "description": "Ranks anonymized candidates purely on merit",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "candidates": {
+                            "type": "string",
+                            "description": "JSON list of anonymized candidates"
+                        },
+                        "job_role": {
+                            "type": "string",
+                            "description": "The job role being evaluated"
+                        }
+                    },
+                    "required": ["candidates", "job_role"]
+                }
+            },
+            "instructions": "You are a blind recruitment evaluator. You receive only anonymized candidates with no names — just Candidate_IDs, skills, experience, education, certifications, and project count. Rank them purely on merit for the given job role. Return a ranked list with: candidate_id, score out of 100, one sentence justification. Never ask for or reference any real names."
+        },
+        {
+            "name": "IdentityResolverTool",
+            "class": "blindspot.identity_resolver.IdentityResolverTool",
+            "function": {
+                "description": "Reveals real names for top N candidates only. All others stay sealed.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "candidate_ids": {
+                            "type": "string",
+                            "description": "Comma separated list of ranked candidate IDs, best first. Example: Candidate_01,Candidate_03,Candidate_02"
+                        },
+                        "top_n": {
+                            "type": "string",
+                            "description": "How many top candidates to reveal, e.g. 3"
+                        }
+                    },
+                    "required": ["candidate_ids", "top_n"]
+                }
+            }
+        },
+        {
+            "name": "SchedulingAgent",
+            "function": {
+                "description": "Schedules interviews for approved candidates",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "approved_candidates": {
+                            "type": "string",
+                            "description": "List of approved candidates with names"
+                        }
+                    },
+                    "required": ["approved_candidates"]
+                }
+            },
+            "instructions": "You are an interview scheduler. For each approved candidate, call AvailabilityMatcherTool with their name to find the best slot. Present a clean final schedule with each candidate name and their proposed interview time.",
+            "tools": ["AvailabilityMatcherTool"]
+        },
+        {
+            "name": "AvailabilityMatcherTool",
+            "class": "blindspot.availability_matcher.AvailabilityMatcherTool",
+            "function": {
+                "description": "Finds first overlapping slot between candidate and interviewer. Pure math, no LLM.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "candidate_name": {
+                            "type": "string",
+                            "description": "Name of candidate to schedule"
+                        }
+                    },
+                    "required": ["candidate_name"]
+                }
+            }
+        }
+    ]
+}
