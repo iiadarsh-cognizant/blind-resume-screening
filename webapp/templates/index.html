@@ -393,7 +393,7 @@ async function checkConnection(){
 /* ── App state ── */
 const S={
   stage:1, jobId:null, jobTitle:'', jobCount:0,
-  screeningRan:false, ranked:[], threshold:3,
+  screeningRan:false, ranked:[], threshold:3, topN:3,
   approvedIds:new Set(), approvedCandidates:[], revealed:false, scheduled:{},
   agentCalls:0, toolCalls:0,
   runStart:null, runEnd:null,
@@ -540,6 +540,15 @@ function r3(){
       <button class="btn btn-ghost btn-sm" onclick="goTo(4)" ${!S.screeningRan?'disabled':''}>Proceed to approval →</button>
     </div>
   </div>
+  <div class="threshold-wrap" style="margin-bottom:18px;">
+    <div class="threshold-label">Candidates to approve &amp; reveal identity for</div>
+    <div class="threshold-row">
+      <input type="number" id="topNInput" min="1" max="${S.jobCount}" value="${S.topN}"
+        style="width:84px;padding:9px 12px;border-radius:var(--r-md);border:1px solid var(--line-med);background:var(--ink-soft);color:var(--paper);font-family:var(--font-mono);font-size:15px;"
+        oninput="setTopN(this.value)" ${S.screeningRan?'disabled':''}>
+      <span style="font-size:13px;color:var(--steel);">of ${S.jobCount} candidates in this role — sets the max for the reveal slider in the next stage.</span>
+    </div>
+  </div>
   <div id="thinkArea"></div>
   <div id="traceArea"></div>
   <div class="bwrap">
@@ -576,6 +585,54 @@ function renderSealedList(){
       <span class="lock-icon">🔒</span>
       <div><div class="blur-text">${a.name}</div><div class="sealed-label">${a.candId} · SEALED</div></div>
     </div>`).join('');
+}
+
+function buildRankedFromStructured(rankingArr,applicants){
+  if(!Array.isArray(rankingArr)||rankingArr.length===0)return[];
+  const out=[],used=new Set();
+  rankingArr.forEach((r,i)=>{
+    const name=(r.name||'').trim();
+    const match=applicants.find(a=>a.name&&a.name.trim().toLowerCase()===name.toLowerCase()&&!used.has(a.resume_id));
+    if(match){
+      used.add(match.resume_id);
+      out.push({
+        ...match,
+        candId:r.candidate_id||`Candidate_${String(i+1).padStart(2,'0')}`,
+        score:Math.min(100,Math.max(0,parseInt(r.score)||0)),
+        rank:i+1,
+        justification:r.justification||''
+      });
+    }
+  });
+  return out;
+}
+
+function parseAgentRanking(text,applicants){
+  if(!text)return[];
+  // Matches patterns like "#1: Jacqueline Lee** (Score: 95/100)" inside the
+  // orchestrator's markdown summary — tolerant of emoji/markdown noise around it.
+  const re=/#(\d+):\s*([^*\n(]+?)\*{0,2}\s*\(?Score:?\s*(\d+)/gi;
+  const out=[],used=new Set();
+  let m;
+  while((m=re.exec(text))!==null){
+    const rank=parseInt(m[1]),name=m[2].trim(),score=parseInt(m[3]);
+    const match=applicants.find(a=>a.name&&a.name.trim().toLowerCase()===name.toLowerCase()&&!used.has(a.resume_id));
+    if(match){
+      used.add(match.resume_id);
+      out.push({...match,candId:`Candidate_${String(rank).padStart(2,'0')}`,score:Math.min(100,Math.max(0,score)),rank});
+    }
+  }
+  out.sort((a,b)=>a.rank-b.rank);
+  return out;
+}
+
+function setTopN(v){
+  let n=parseInt(v);
+  if(isNaN(n))n=1;
+  n=Math.max(1,Math.min(S.jobCount||1,n));
+  S.topN=n;
+  const el=document.getElementById('topNInput');
+  if(el)el.value=n;
 }
 
 function runScreening(){
@@ -701,12 +758,31 @@ function runScreening(){
     S.agentResponse=result.response||'';
     S.tokenInfo=result.token_accounting||{};
     S.runEnd=Date.now();
+    S.threshold=S.topN; // reveal slider starts fully revealed within the approved count
 
-    S.ranked=S.applicants.map((a,i)=>({
-      ...a,
-      candId:`Candidate_${String(i+1).padStart(2,'0')}`,
-      score:a.ai_score?Math.round(parseFloat(a.ai_score)):60
-    })).sort((a,b)=>b.score-a.score);
+    let parsedTop=buildRankedFromStructured(result.ranking,S.applicants);
+    if(parsedTop.length>0){
+      console.log(`[BLINDSPOT] Used structured <<<RANKING>>> JSON — ${parsedTop.length} candidate(s).`);
+    }else{
+      parsedTop=parseAgentRanking(S.agentResponse,S.applicants);
+      if(parsedTop.length>0)console.log(`[BLINDSPOT] Structured ranking missing — parsed ${parsedTop.length} candidate(s) from response text instead.`);
+    }
+
+    if(parsedTop.length>0){
+      const usedIds=new Set(parsedTop.map(a=>a.resume_id));
+      const sealedRest=S.applicants.filter(a=>!usedIds.has(a.resume_id))
+        .map(a=>({...a,score:a.ai_score?Math.round(parseFloat(a.ai_score)):60}))
+        .sort((a,b)=>b.score-a.score)
+        .map((a,i)=>({...a,candId:`Candidate_${String(parsedTop.length+i+1).padStart(2,'0')}`}));
+      S.ranked=[...parsedTop,...sealedRest];
+    }else{
+      console.warn('[BLINDSPOT] Could not parse agent response — falling back to ai_score ranking.');
+      S.ranked=S.applicants.map((a,i)=>({
+        ...a,
+        candId:`Candidate_${String(i+1).padStart(2,'0')}`,
+        score:a.ai_score?Math.round(parseFloat(a.ai_score)):60
+      })).sort((a,b)=>b.score-a.score);
+    }
 
     S.screeningRan=true;
     thinkArea.innerHTML='';
@@ -727,14 +803,14 @@ function runScreening(){
     hideTicker();
   };
 
-  xhr.send(JSON.stringify({job_role:S.jobId,top_n:S.threshold}));
+  xhr.send(JSON.stringify({job_role:S.jobId,top_n:S.topN}));
 }
 
 /* ══════════════════════════════════════
    STAGE 4 — Approve & reveal
 ══════════════════════════════════════ */
 function r4(){
-  const list=S.ranked,max=list.length,p=Math.round((S.threshold/max)*100);
+  const list=S.ranked,max=S.topN,p=Math.round((S.threshold/max)*100);
   return `<div class="shr">
     <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Approve &amp; reveal identity</h1><div class="stage-desc">Set how many top-ranked candidates get their identity released. Everyone outside stays permanently sealed.</div></div>
     <div class="sha">
