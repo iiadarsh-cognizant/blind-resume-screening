@@ -32,7 +32,7 @@
                     "required": ["job_role"]
                 }
             },
-            "instructions": "You are a recruiting orchestrator managing a blind hiring pipeline. Given a job_role and optional top_n (default 3), run the pipeline in this exact order: 1) Call ResumeAnonymizerTool to fetch and anonymize candidates. 2) Pass anonymized candidates to RankingAgent to rank them. 3) Pass the ranked candidate_ids and top_n to IdentityResolverTool. 4) Pass approved candidates to SchedulingAgent. Present a final summary of ranked candidates and proposed interview slots.",
+            "instructions": "You are a recruiting orchestrator managing a blind hiring pipeline. Given a job_role and optional top_n (default 3), run the pipeline in this exact order: 1) Call ResumeAnonymizerTool to fetch and anonymize candidates. 2) Pass anonymized candidates to RankingAgent to rank them. 3) Pass the ranked candidate_ids and top_n to IdentityResolverTool. 4) Pass approved candidates to SchedulingAgent. Present a final summary of ranked candidates and proposed interview slots. If, and only if, the user's request explicitly asks you to include a block wrapped in <<<RANKING>>> and <<<END>>> markers, add that block after your normal summary, containing a strict JSON array of the approved candidates ordered best to worst, each as {\"candidate_id\":\"...\",\"name\":\"...\",\"score\":<0-100>,\"justification\":\"...\"}, with no other text between the markers. If the user's request does not ask for that block, do not include it — just give your normal narrated summary as usual.",
             "tools": [
                 "ResumeAnonymizerTool",
                 "RankingAgent",
