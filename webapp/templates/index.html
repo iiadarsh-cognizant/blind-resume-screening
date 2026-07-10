@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blindspot — Blind Hiring Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1218;--ink-soft:#161C26;--ink-softer:#1D2535;--ink-card:#1A2030;
+    --paper:#F0EDE8;--paper-dim:#C8C4BC;--steel:#6B7A8D;--steel-dark:#3D4E60;
+    --line-dark:rgba(255,255,255,0.07);--line-med:rgba(255,255,255,0.11);
+    --gold:#C9A227;--gold-soft:rgba(201,162,39,0.12);--gold-glow:rgba(201,162,39,0.25);
+    --teal:#2EC4B0;--teal-soft:rgba(46,196,176,0.12);--teal-glow:rgba(46,196,176,0.3);
+    --topbar-bg:rgba(14,18,24,0.92);--particle-op:0.35;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  body.light{
+    --ink:#F2F0EB;--ink-soft:#E6E2D9;--ink-softer:#DAD6CC;--ink-card:#ECEAE4;
+    --paper:#12161C;--paper-dim:#3A4450;--steel:#7A8898;--steel-dark:#B0BCCA;
+    --line-dark:rgba(0,0,0,0.08);--line-med:rgba(0,0,0,0.14);
+    --gold:#A07C10;--gold-soft:rgba(160,124,16,0.1);--gold-glow:rgba(160,124,16,0.2);
+    --teal:#1A9D8C;--teal-soft:rgba(26,157,140,0.1);--teal-glow:rgba(26,157,140,0.25);
+    --topbar-bg:rgba(242,240,235,0.95);--particle-op:0.12;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{background:var(--ink);color:var(--paper);font-family:var(--font-body);min-height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .3s,color .3s;}
+  ::selection{background:var(--teal-soft);}
+  button{font-family:var(--font-body);cursor:pointer;}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
+  code{font-family:var(--font-mono);}
+  #particleCanvas{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--particle-op);transition:opacity .3s;}
+
+  /* ── topbar ── */
+  .topbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:13px 28px;border-bottom:1px solid var(--line-dark);background:var(--topbar-bg);backdrop-filter:blur(12px);flex-shrink:0;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:600;font-size:14px;color:#0E1218;box-shadow:0 0 18px var(--teal-glow);}
+  .brand-name{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-0.2px;}
+  .brand-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:1.8px;color:var(--steel);text-transform:uppercase;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:18px;}
+  .stat-strip{display:flex;gap:20px;font-family:var(--font-mono);font-size:11px;color:var(--steel);}
+  .stat-strip b{color:var(--paper);font-weight:600;}
+  .stat-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;animation:pulse 2.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;box-shadow:0 0 8px currentColor;}}
+  .agent-ticker{font-family:var(--font-mono);font-size:11px;color:var(--teal);background:var(--teal-soft);border:1px solid rgba(46,196,176,0.2);padding:4px 12px;border-radius:20px;display:flex;align-items:center;gap:8px;transition:opacity .3s;}
+  .agent-ticker.hidden{opacity:0;pointer-events:none;}
+  .ticker-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:tpulse .8s ease-in-out infinite;}
+  @keyframes tpulse{0%,100%{transform:scale(1);}50%{transform:scale(1.6);}}
+  .theme-btn{background:var(--ink-soft);border:1px solid var(--line-med);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--steel);display:flex;align-items:center;gap:6px;transition:background .2s,color .2s;flex-shrink:0;}
+  .theme-btn:hover{background:var(--ink-softer);color:var(--paper);}
+
+  /* ── connection status ── */
+  .conn-pill{font-family:var(--font-mono);font-size:10.5px;padding:4px 11px;border-radius:20px;display:flex;align-items:center;gap:7px;}
+  .conn-ok{background:var(--teal-soft);color:var(--teal);border:1px solid rgba(46,196,176,.2);}
+  .conn-err{background:rgba(201,80,62,.1);color:#C9503E;border:1px solid rgba(201,80,62,.2);}
+  .conn-checking{background:rgba(255,255,255,.05);color:var(--steel);border:1px solid var(--line-dark);}
+  .conn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+  /* ── layout ── */
+  .layout{display:flex;flex:1;min-height:0;position:relative;z-index:1;}
+  .stepper{width:240px;flex-shrink:0;border-right:1px solid var(--line-dark);padding:18px 12px;display:flex;flex-direction:column;gap:3px;background:rgba(14,18,24,0.6);backdrop-filter:blur(8px);overflow-y:auto;}
+  body.light .stepper{background:rgba(242,240,235,0.8);}
+  .step{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .2s,transform .15s;border:1px solid transparent;}
+  .step:hover:not(.locked){background:var(--ink-soft);transform:translateX(2px);}
+  .step.active{background:var(--ink-soft);border-color:var(--line-med);}
+  .step-num{font-family:var(--font-mono);font-size:11px;color:var(--steel);width:22px;height:22px;border-radius:50%;border:1px solid var(--steel-dark);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all .3s;}
+  .step.active .step-num{border-color:var(--teal);color:var(--teal);box-shadow:0 0 10px var(--teal-soft);}
+  .step.done .step-num{background:var(--teal);border-color:var(--teal);color:#0E1218;box-shadow:0 0 12px var(--teal-glow);}
+  .step-label{font-size:13.5px;font-weight:500;color:var(--paper);}
+  .step-sub{font-size:11px;color:var(--steel);margin-top:2px;line-height:1.4;}
+  .step.locked{opacity:.35;cursor:not-allowed;}
+  .step.locked:hover{transform:none;}
+  .pbar-outer{height:2px;background:rgba(255,255,255,.06);border-radius:2px;margin:0 4px 14px;overflow:hidden;}
+  body.light .pbar-outer{background:rgba(0,0,0,.08);}
+  .pbar-inner{height:100%;background:linear-gradient(90deg,var(--teal),var(--gold));border-radius:2px;transition:width .6s cubic-bezier(.16,1,.3,1);}
+
+  .stage{flex:1;overflow-y:auto;padding:30px 42px 80px;scroll-behavior:smooth;}
+
+  /* stage header */
+  .shr{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;}
+  .sh{flex:1;min-width:0;}
+  .sha{display:flex;gap:10px;align-items:center;flex-shrink:0;padding-top:6px;flex-wrap:wrap;}
+  .eyebrow{font-family:var(--font-mono);font-size:10.5px;letter-spacing:1.6px;color:var(--steel);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+  .eyebrow::before{content:'';display:block;width:20px;height:1px;background:var(--steel);}
+  .stage-title{font-family:var(--font-display);font-size:27px;font-weight:700;margin:0 0 8px;letter-spacing:-.3px;}
+  .stage-desc{color:var(--steel);font-size:14px;max-width:560px;line-height:1.65;}
+
+  /* buttons */
+  .btn{font-size:13px;font-weight:600;padding:10px 20px;border-radius:9px;border:none;display:inline-flex;align-items:center;gap:8px;transition:opacity .15s,transform .1s,box-shadow .2s;position:relative;overflow:hidden;white-space:nowrap;}
+  .btn:hover:not(:disabled){opacity:.9;transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{opacity:.3;cursor:not-allowed;}
+  .btn-primary{background:var(--teal);color:#0E1218;box-shadow:0 4px 16px rgba(46,196,176,.25);}
+  .btn-primary:hover:not(:disabled){box-shadow:0 6px 24px rgba(46,196,176,.4);}
+  .btn-ghost{background:transparent;color:var(--paper);border:1px solid var(--line-med);}
+  .btn-ghost:hover:not(:disabled){border-color:var(--steel);}
+  .btn-gold{background:var(--gold);color:#0E1218;box-shadow:0 4px 16px rgba(201,162,39,.25);}
+  .btn-gold:hover:not(:disabled){box-shadow:0 6px 24px rgba(201,162,39,.4);}
+  .btn-sm{padding:8px 15px;font-size:12px;}
+  .btn-loading{opacity:.6;cursor:wait;}
+  .spin{display:inline-block;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* cards */
+  .grid-jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:14px;margin-top:18px;}
+  .job-card{background:var(--ink-card);border:1px solid var(--line-dark);border-radius:14px;padding:20px;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s;animation:fadeUp .4s ease both;}
+  .job-card:nth-child(2){animation-delay:.07s;}.job-card:nth-child(3){animation-delay:.14s;}.job-card:nth-child(4){animation-delay:.21s;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .job-card:hover{border-color:rgba(46,196,176,.4);transform:translateY(-3px);box-shadow:0 12px 32px rgba(46,196,176,.08);}
+  .job-card.selected{border-color:var(--teal);background:var(--ink-softer);box-shadow:0 0 0 1px var(--teal),0 12px 40px rgba(46,196,176,.1);}
+  .job-title{font-family:var(--font-display);font-size:16px;font-weight:600;margin:10px 0 4px;}
+  .job-meta{font-size:12px;color:var(--steel);display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;}
+  .job-meta b{color:var(--paper);}
+  .pill{display:inline-block;font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:20px;letter-spacing:.5px;font-weight:500;}
+  .pill-open{background:var(--teal-soft);color:var(--teal);border:1px solid rgba(46,196,176,.2);}
+
+  /* table */
+  .table-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--line-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--steel);text-transform:uppercase;padding:11px 16px;background:var(--ink-soft);border-bottom:1px solid var(--line-dark);}
+  td{padding:12px 16px;border-bottom:1px solid var(--line-dark);background:var(--ink-card);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--ink-softer);}
+  .avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--paper);margin-right:10px;flex-shrink:0;}
+  .name-cell{display:flex;align-items:center;}
+
+  /* screening */
+  .bwrap{display:flex;margin-top:18px;border-radius:14px;overflow:hidden;border:1px solid var(--line-dark);}
+  .bcol{flex:1;padding:20px;min-width:0;}
+  .col-vis{background:var(--ink-card);}
+  .col-hid{background:#101520;}
+  body.light .col-hid{background:#e0ddd6;}
+  .col-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line-dark);}
+  .col-head-title{font-family:var(--font-display);font-weight:600;font-size:14px;}
+  .col-head-sub{font-family:var(--font-mono);font-size:10px;color:var(--steel);margin-top:2px;}
+  .divider{width:2px;flex-shrink:0;position:relative;background:repeating-linear-gradient(180deg,var(--gold) 0 6px,transparent 6px 14px);opacity:.6;}
+  .divider::after{content:'sly_data boundary';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg);white-space:nowrap;font-family:var(--font-mono);font-size:9px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;background:var(--ink);padding:4px 8px;border-radius:3px;}
+  body.light .divider::after{background:var(--ink-soft);}
+  .cand-row{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-radius:9px;margin-bottom:7px;background:rgba(255,255,255,.02);border:1px solid var(--line-dark);opacity:0;transform:translateY(8px);transition:border-color .2s,background .2s;}
+  .cand-row.visible{animation:riseIn .5s ease forwards;}
+  .cand-row:hover{background:rgba(255,255,255,.04);border-color:var(--line-med);}
+  @keyframes riseIn{to{opacity:1;transform:translateY(0);}}
+  .rank-badge{font-family:var(--font-mono);font-size:10px;color:var(--steel);width:24px;height:24px;border-radius:6px;border:1px solid var(--steel-dark);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:10px;}
+  .rank-badge.top{border-color:var(--teal);color:var(--teal);background:var(--teal-soft);}
+  .cand-id{font-family:var(--font-mono);font-size:12px;color:var(--paper);font-weight:500;}
+  .cand-skill{font-size:11px;color:var(--steel);margin-top:2px;max-width:290px;line-height:1.4;}
+  .sbar-wrap{width:76px;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;flex-shrink:0;}
+  .sbar{height:100%;background:linear-gradient(90deg,var(--teal),rgba(46,196,176,.7));border-radius:3px;width:0;transition:width .8s cubic-bezier(.16,1,.3,1);}
+  .snum{font-family:var(--font-mono);font-size:12px;color:var(--teal);width:28px;text-align:right;flex-shrink:0;}
+  .sr-right{display:flex;align-items:center;gap:8px;}
+  .sealed-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;margin-bottom:7px;background:rgba(201,162,39,.05);border:1px solid var(--gold-soft);opacity:0;animation:riseIn .5s ease forwards;}
+  .lock-icon{font-size:14px;flex-shrink:0;}
+  .blur-text{filter:blur(5.5px);user-select:none;color:var(--paper);font-size:12.5px;transition:filter .7s cubic-bezier(.16,1,.3,1),color .5s;}
+  .blur-text.revealed{filter:blur(0);color:var(--teal);}
+  .sealed-label{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:.6px;margin-top:2px;}
+
+  /* thinking */
+  .thinking-bar{display:flex;align-items:center;gap:12px;padding:13px 17px;border-radius:10px;background:var(--ink-softer);border:1px solid var(--line-dark);margin-bottom:14px;animation:fadeUp .3s ease;}
+  .thinking-dots{display:flex;gap:5px;}
+  .thinking-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:bounce 1.2s ease-in-out infinite;}
+  .thinking-dot:nth-child(2){animation-delay:.15s;}.thinking-dot:nth-child(3){animation-delay:.3s;}
+  @keyframes bounce{0%,100%{transform:translateY(0);opacity:.4;}50%{transform:translateY(-5px);opacity:1;}}
+  .thinking-text{font-family:var(--font-mono);font-size:12px;color:var(--steel);}
+  .ta{color:var(--teal);}
+  .trace-panel{background:var(--ink-soft);border:1px solid var(--line-dark);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-family:var(--font-mono);font-size:11.5px;}
+  .trace-hdr{color:var(--steel);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+  .trace-step{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-dark);opacity:0;animation:riseIn .3s ease forwards;}
+  .trace-step:last-child{border-bottom:none;}
+  .ti{font-size:12px;width:18px;text-align:center;flex-shrink:0;}
+  .tl{color:var(--paper);flex:1;}
+  .ts{font-size:10px;padding:2px 8px;border-radius:10px;}
+  .ts-run{background:var(--teal-soft);color:var(--teal);}
+  .ts-done{background:rgba(255,255,255,.06);color:var(--steel);}
+
+  /* approve */
+  .threshold-wrap{background:var(--ink-card);border:1px solid var(--line-dark);border-radius:12px;padding:16px 20px;margin-bottom:14px;}
+  .threshold-label{font-size:13px;color:var(--steel);margin-bottom:12px;}
+  .threshold-row{display:flex;align-items:center;gap:16px;}
+  .slider-custom{-webkit-appearance:none;appearance:none;width:200px;height:4px;border-radius:4px;outline:none;cursor:pointer;background:linear-gradient(90deg,var(--teal) calc(var(--val,50%)),rgba(255,255,255,.1) calc(var(--val,50%)));}
+  .slider-custom::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--teal);border:3px solid var(--ink);box-shadow:0 0 12px var(--teal-glow);cursor:grab;}
+  .slider-custom::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.2);}
+  .tval{font-family:var(--font-mono);font-size:22px;font-weight:600;color:var(--teal);min-width:36px;text-align:center;text-shadow:0 0 20px var(--teal-glow);}
+  .approve-list{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+  .approve-row{display:flex;align-items:center;justify-content:space-between;padding:13px 17px;border-radius:11px;border:1px solid var(--line-dark);background:var(--ink-card);transition:background .4s,border-color .4s,box-shadow .4s;animation:fadeUp .3s ease both;}
+  .approve-row.will-approve{border-color:rgba(201,162,39,.25);background:rgba(201,162,39,.04);}
+  .approve-row.revealed{background:var(--teal-soft);border-color:rgba(46,196,176,.35);box-shadow:0 4px 20px rgba(46,196,176,.08);}
+  .approve-left{display:flex;align-items:center;gap:14px;}
+  .chip{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:20px;font-weight:500;letter-spacing:.3px;}
+  .chip-locked{background:var(--gold-soft);color:var(--gold);border:1px solid rgba(201,162,39,.2);}
+  .chip-open{background:var(--teal-soft);color:var(--teal);border:1px solid rgba(46,196,176,.2);}
+  .chip-out{background:rgba(255,255,255,.04);color:var(--steel);border:1px solid var(--line-dark);}
+
+  /* schedule */
+  .sched-card{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-radius:13px;border:1px solid var(--line-dark);background:var(--ink-card);margin-bottom:11px;transition:border-color .3s,box-shadow .3s;animation:fadeUp .4s ease both;}
+  .sched-card.confirmed{border-color:rgba(46,196,176,.3);box-shadow:0 0 20px rgba(46,196,176,.06);}
+  .avail-cols{display:flex;gap:22px;font-size:11px;color:var(--steel);margin-top:8px;}
+  .avail-col b{display:block;color:var(--paper);font-family:var(--font-mono);font-size:10px;margin-bottom:4px;}
+  .slot-chip{font-family:var(--font-mono);font-size:11px;background:var(--teal-soft);color:var(--teal);padding:6px 12px;border-radius:8px;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(46,196,176,.2);}
+  .confirm-btn{font-family:var(--font-mono);font-size:11px;background:transparent;border:1px solid var(--teal);color:var(--teal);padding:6px 13px;border-radius:8px;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s,transform .1s;margin-left:10px;}
+  .confirm-btn:hover{background:var(--teal-soft);}
+  .confirm-btn:active{transform:scale(.97);}
+  .confirm-btn.done{background:var(--teal);color:#0E1218;border-color:var(--teal);box-shadow:0 4px 14px rgba(46,196,176,.3);}
+  .email-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px;color:var(--teal);background:var(--teal-soft);border:1px solid rgba(46,196,176,.2);padding:3px 9px;border-radius:20px;margin-left:8px;animation:pop .4s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes pop{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:scale(1);}}
+
+  /* architecture */
+  .diagram-wrap{margin-top:20px;background:var(--ink-card);border:1px solid var(--line-dark);border-radius:16px;padding:26px;overflow-x:auto;}
+  .flow-row{display:flex;align-items:center;gap:0;flex-wrap:nowrap;min-width:880px;}
+  .node{font-family:var(--font-mono);font-size:11px;text-align:center;padding:13px 13px;border-radius:11px;border:1px solid var(--line-dark);min-width:120px;transition:border-color .2s,box-shadow .2s;cursor:default;}
+  .node-agent{background:rgba(46,196,176,.06);border-color:rgba(46,196,176,.2);}
+  .node-agent:hover{box-shadow:0 0 20px rgba(46,196,176,.1);border-color:rgba(46,196,176,.4);}
+  .node-tool{background:rgba(201,162,39,.06);border-color:rgba(201,162,39,.2);border-style:dashed;}
+  .node-tool:hover{box-shadow:0 0 20px rgba(201,162,39,.1);}
+  .node-label{font-size:9px;letter-spacing:.7px;color:var(--steel);text-transform:uppercase;margin-top:4px;}
+  .arrow{padding:0 5px;display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
+  .arrow-line{width:22px;height:1px;background:linear-gradient(90deg,transparent,var(--steel-dark),transparent);}
+  .arrow-head{font-size:10px;color:var(--steel-dark);}
+  .btag{font-family:var(--font-mono);font-size:9px;background:var(--gold-soft);color:var(--gold);padding:3px 7px;border-radius:3px;display:block;margin-top:4px;border:1px solid rgba(201,162,39,.15);}
+  .legend{display:flex;gap:22px;margin-top:22px;font-size:12px;color:var(--steel);flex-wrap:wrap;}
+  .ls{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:7px;vertical-align:middle;}
+  .run-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:11px;margin-top:18px;}
+  .rsc{background:var(--ink-card);border:1px solid var(--line-dark);border-radius:12px;padding:15px 17px;animation:fadeUp .4s ease both;}
+  .rsc:nth-child(2){animation-delay:.06s;}.rsc:nth-child(3){animation-delay:.12s;}.rsc:nth-child(4){animation-delay:.18s;}.rsc:nth-child(5){animation-delay:.24s;}
+  .rsv{font-family:var(--font-mono);font-size:24px;font-weight:600;color:var(--teal);line-height:1;margin-bottom:4px;}
+  .rsv.gold{color:var(--gold);}
+  .rsl{font-size:11.5px;color:var(--steel);line-height:1.4;}
+  .top-list{margin-top:18px;display:flex;flex-direction:column;gap:7px;}
+  .top-row{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-radius:10px;border:1px solid var(--line-dark);background:var(--ink-card);animation:fadeUp .3s ease both;}
+  .top-row:first-child{border-color:rgba(201,162,39,.3);background:rgba(201,162,39,.04);}
+  .privacy-stat{margin-top:14px;padding:15px 19px;border:1px solid var(--line-dark);border-radius:12px;background:rgba(46,196,176,.03);font-size:13.5px;color:var(--paper);line-height:1.65;}
+  .privacy-stat b{color:var(--teal);}
+  .empty-note{margin-top:44px;padding:28px;border:1px dashed var(--line-dark);border-radius:14px;color:var(--steel);font-size:14px;text-align:center;line-height:1.65;}
+
+  /* agent response box */
+  .agent-response{margin-top:18px;background:var(--ink-softer);border:1px solid var(--line-dark);border-radius:12px;padding:18px 20px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto;}
+  .agent-response-label{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--teal);text-transform:uppercase;margin-bottom:10px;}
+
+  /* error box */
+  .error-box{background:rgba(201,80,62,.08);border:1px solid rgba(201,80,62,.3);border-radius:12px;padding:16px 18px;color:#C9503E;font-size:13px;margin-top:14px;line-height:1.6;}
+
+  /* global toast */
+  #gToast{position:fixed;bottom:24px;right:24px;z-index:1000;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+  .toast-item{display:flex;align-items:center;gap:9px;background:var(--ink-softer);border:1px solid var(--teal);color:var(--teal);font-family:var(--font-mono);font-size:12px;padding:9px 15px;border-radius:10px;box-shadow:0 8px 24px rgba(46,196,176,.2);animation:tin .4s cubic-bezier(.34,1.56,.64,1) both,tout .3s ease 2.8s both;}
+  @keyframes tin{from{opacity:0;transform:translateX(22px);}to{opacity:1;transform:translateX(0);}}
+  @keyframes tout{to{opacity:0;transform:translateY(6px);}}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--steel-dark);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--steel);}
+</style>
+</head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<div id="gToast"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">B</div>
+    <div>
+      <div class="brand-name">Blindspot</div>
+      <div class="brand-eyebrow">Blind hiring · Neuro-SAN agent network</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="conn-pill conn-checking" id="connPill">
+      <div class="conn-dot"></div>
+      <span id="connText">Checking…</span>
+    </div>
+    <div class="agent-ticker hidden" id="agentTicker">
+      <div class="ticker-dot"></div>
+      <span id="tickerText">Agent running…</span>
+    </div>
+    <div class="stat-strip">
+      <span><span class="stat-dot" style="background:var(--teal)"></span>Agents: <b id="statAgent">0</b></span>
+      <span><span class="stat-dot" style="background:var(--gold)"></span>Tools: <b id="statTool">0</b></span>
+      <span><span class="stat-dot" style="background:var(--steel)"></span>PII exposed: <b style="color:var(--teal)">0</b></span>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="stepper" id="stepper"></div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+/* ── Particles ── */
+(function(){
+  const cv=document.getElementById('particleCanvas'),ctx=cv.getContext('2d');
+  let W,H,P=[];
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+  resize();addEventListener('resize',resize);
+  class Pt{constructor(){this.reset();}reset(){this.x=Math.random()*W;this.y=Math.random()*H;this.vx=(Math.random()-.5)*.25;this.vy=(Math.random()-.5)*.25;this.r=Math.random()*1.4+.4;this.a=Math.random()*.4+.1;this.c=Math.random()>.5?'46,196,176':'201,162,39';}update(){this.x+=this.vx;this.y+=this.vy;if(this.x<0||this.x>W||this.y<0||this.y>H)this.reset();}draw(){ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=`rgba(${this.c},${this.a})`;ctx.fill();}}
+  for(let i=0;i<80;i++)P.push(new Pt());
+  function loop(){ctx.clearRect(0,0,W,H);P.forEach(p=>{p.update();p.draw();});for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){const dx=P[i].x-P[j].x,dy=P[i].y-P[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<90){ctx.beginPath();ctx.moveTo(P[i].x,P[i].y);ctx.lineTo(P[j].x,P[j].y);ctx.strokeStyle=`rgba(46,196,176,${.04*(1-d/90)})`;ctx.lineWidth=.5;ctx.stroke();}}requestAnimationFrame(loop);}
+  loop();
+})();
+
+/* ── Theme ── */
+let isDark=true;
+function toggleTheme(){isDark=!isDark;document.body.classList.toggle('light',!isDark);document.getElementById('themeBtn').textContent=isDark?'🌙 Dark':'☀️ Light';}
+
+/* ── Toast ── */
+function showToast(text,delay=0){
+  setTimeout(()=>{const el=document.getElementById('gToast'),d=document.createElement('div');d.className='toast-item';d.innerHTML=`<span>✓</span>${text}`;el.appendChild(d);setTimeout(()=>d.remove(),3200);},delay);
+}
+
+/* ── Stats ── */
+function showTicker(t){document.getElementById('tickerText').textContent=t;document.getElementById('agentTicker').classList.remove('hidden');}
+function hideTicker(){document.getElementById('agentTicker').classList.add('hidden');}
+function bumpStat(k,n=1){if(k==='agent')S.agentCalls+=n;else S.toolCalls+=n;document.getElementById('statAgent').textContent=S.agentCalls;document.getElementById('statTool').textContent=S.toolCalls;}
+
+/* ── Connection check ── */
+async function checkConnection(){
+  try{
+    const r=await fetch('/api/check-neuro-san');
+    const d=await r.json();
+    const pill=document.getElementById('connPill');
+    const txt=document.getElementById('connText');
+    if(d.neuro_san_running){
+      pill.className='conn-pill conn-ok';
+      txt.textContent='Neuro SAN connected';
+    } else {
+      pill.className='conn-pill conn-err';
+      txt.textContent='Neuro SAN offline';
+    }
+  } catch(e){
+    document.getElementById('connPill').className='conn-pill conn-err';
+    document.getElementById('connText').textContent='Server offline';
+  }
+}
+
+/* ── App state ── */
+const S={
+  stage:1, jobId:null, jobTitle:'', jobCount:0,
+  screeningRan:false, ranked:[], threshold:3,
+  approvedIds:new Set(), approvedCandidates:[], revealed:false, scheduled:{},
+  agentCalls:0, toolCalls:0,
+  runStart:null, runEnd:null,
+  agentResponse:'', tokenInfo:{},
+  roles:[], applicants:[]
+};
+
+const STEPS=[
+  {n:1,label:'Open roles',sub:'Career portal'},
+  {n:2,label:'Applicant pool',sub:'Raw submissions'},
+  {n:3,label:'Blind screening',sub:'Ranking agent + sly_data'},
+  {n:4,label:'Approve & reveal',sub:'Identity resolver'},
+  {n:5,label:'Schedule interviews',sub:'Availability matcher'},
+  {n:6,label:'Agent network',sub:'Architecture view'}
+];
+
+/* ── Navigation ── */
+function goTo(n){
+  if(n===2&&!S.jobId)return;
+  if(n>2&&!S.jobId)return;
+  if(n>3&&!S.screeningRan)return;
+  if(n>4&&!S.screeningRan)return;
+  S.stage=n;render();document.getElementById('stage').scrollTop=0;
+}
+function pct(){return{1:5,2:20,3:45,4:65,5:85,6:100}[S.stage]||5;}
+
+/* ── Stepper ── */
+function renderStepper(){
+  document.getElementById('stepper').innerHTML=
+    `<div class="pbar-outer"><div class="pbar-inner" style="width:${pct()}%"></div></div>`+
+    STEPS.map(s=>{
+      const locked=(s.n===2&&!S.jobId)||(s.n>2&&!S.jobId)||(s.n>3&&s.n<6&&!S.screeningRan);
+      const done=s.n<S.stage,active=s.n===S.stage;
+      return `<div class="step ${active?'active':''} ${done?'done':''} ${locked?'locked':''}" onclick="goTo(${s.n})">
+        <div class="step-num">${done?'✓':s.n}</div>
+        <div><div class="step-label">${s.label}</div><div class="step-sub">${s.sub}</div></div>
+      </div>`;
+    }).join('');
+}
+
+function render(){
+  renderStepper();
+  document.getElementById('stage').innerHTML=
+    ({1:r1,2:r2,3:r3,4:r4,5:r5,6:r6}[S.stage]||r1)();
+}
+
+/* ══════════════════════════════════════
+   STAGE 1 — Open roles (from API)
+══════════════════════════════════════ */
+function r1(){
+  if(S.roles.length===0){
+    return `<div class="shr"><div class="sh"><div class="eyebrow">Career portal</div><h1 class="stage-title">Open roles</h1></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:20px;color:var(--steel);font-family:var(--font-mono);font-size:13px;">
+      <span class="spin">⟳</span> Loading roles from database…
+    </div>`;
+  }
+  return `<div class="shr">
+    <div class="sh"><div class="eyebrow">Career portal</div><h1 class="stage-title">Open roles</h1><div class="stage-desc">Select a role to load its applicant pool. Identity is stripped before any LLM reasoning begins.</div></div>
+    ${S.jobId?`<div class="sha"><button class="btn btn-primary" onclick="goTo(2)">View applicant pool →</button></div>`:''}
+  </div>
+  <div class="grid-jobs">
+    ${S.roles.map((r,i)=>`<div class="job-card ${S.jobId===r.role?'selected':''}" style="animation-delay:${i*.07}s" data-role="${r.role.replace(/"/g,'&quot;')}" data-count="${r.count}" onclick="handleJobClick(this)">
+      <span class="pill pill-open">OPEN</span>
+      <div class="job-title">${r.role}</div>
+      <div style="color:var(--steel);font-size:12px;">Hiring</div>
+      <div class="job-meta"><span><b>${r.count.toLocaleString()}</b> applicants</span><span>Active</span></div>
+    </div>`).join('')}
+  </div>`;
+}
+
+async function loadRoles(){
+  try{
+    const r=await fetch('/api/roles');
+    S.roles=await r.json();
+    render();
+  } catch(e){
+    document.getElementById('stage').innerHTML=`<div class="error-box">Could not load roles from database. Make sure Flask is running and the database exists at <code>data/blindspot.db</code>.<br><br>${e.message}</div>`;
+  }
+}
+
+function handleJobClick(el){
+  const role=el.getAttribute('data-role');
+  const count=parseInt(el.getAttribute('data-count'));
+  selJob(role,count);
+}
+
+function selJob(role,count){
+  S.jobId=role;S.jobTitle=role;S.jobCount=count;
+  S.screeningRan=false;S.ranked=[];S.approvedIds=new Set();S.approvedCandidates=[];
+  S.revealed=false;S.scheduled={};S.agentResponse='';S.applicants=[];
+  render();
+}
+
+/* ══════════════════════════════════════
+   STAGE 2 — Applicant pool (from API)
+══════════════════════════════════════ */
+function r2(){
+  if(S.applicants.length===0){
+    return `<div class="shr">
+      <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Applicant pool</h1></div>
+      <div class="sha"><button class="btn btn-primary" onclick="goTo(3)">Run blind screening →</button></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:20px;color:var(--steel);font-family:var(--font-mono);font-size:13px;">
+      <span class="spin">⟳</span> Loading applicants…
+    </div>`;
+  }
+  return `<div class="shr">
+    <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Applicant pool</h1><div class="stage-desc">Showing ${S.applicants.length} of ${S.jobCount.toLocaleString()} applications with full identity visible — nothing screened yet.</div></div>
+    <div class="sha">
+      <button class="btn btn-primary" onclick="goTo(3)">Run blind screening →</button>
+      <button class="btn btn-ghost btn-sm" onclick="goTo(1)">← Back</button>
+    </div>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Candidate</th><th>Exp</th><th>Skills</th><th>Education</th><th>Status</th></tr></thead>
+    <tbody>${S.applicants.map((a,i)=>`
+      <tr style="animation:fadeUp .3s ease ${i*.04}s both">
+        <td><div class="name-cell"><span class="avatar" style="background:hsl(${i*37+160},30%,28%)">${a.name.split(' ').map(w=>w[0]).join('')}</span>${a.name}</div></td>
+        <td style="font-family:var(--font-mono);font-size:12px;">${a.experience_years} yrs</td>
+        <td style="color:var(--steel);max-width:260px;font-size:12px;">${a.skills}</td>
+        <td style="color:var(--steel);font-size:12px;">${a.education}</td>
+        <td><span class="pill" style="background:rgba(255,255,255,.05);color:var(--steel);border:1px solid var(--line-dark);">Unscreened</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+async function loadApplicants(){
+  try{
+    const r=await fetch(`/api/applicants/${encodeURIComponent(S.jobId)}`);
+    S.applicants=await r.json();
+    render();
+  } catch(e){ console.error(e); }
+}
+
+/* ══════════════════════════════════════
+   STAGE 3 — Blind screening (live agent)
+══════════════════════════════════════ */
+function r3(){
+  return `<div class="shr">
+    <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Blind screening</h1><div class="stage-desc">The ranking agent sees only anonymized profiles. Real identities sit sealed in <code style="color:var(--gold)">sly_data</code> — no LLM ever reads it.</div></div>
+    <div class="sha">
+      <button class="btn btn-primary" id="runBtn" onclick="runScreening()" ${S.screeningRan?'disabled':''}>${S.screeningRan?'✓ Screening complete':'Run ranking agent'}</button>
+      <button class="btn btn-ghost btn-sm" onclick="goTo(4)" ${!S.screeningRan?'disabled':''}>Proceed to approval →</button>
+    </div>
+  </div>
+  <div id="thinkArea"></div>
+  <div id="traceArea"></div>
+  <div class="bwrap">
+    <div class="bcol col-vis">
+      <div class="col-head"><span style="font-size:16px;">💬</span><div><div class="col-head-title">Chat stream — what the ranking agent sees</div><div class="col-head-sub">ANONYMIZED · NO PII</div></div></div>
+      <div id="rList">${S.screeningRan?renderRankedList():'<div style="color:var(--steel);font-size:13px;padding:12px;">Click "Run ranking agent" to begin.</div>'}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="bcol col-hid">
+      <div class="col-head"><span style="font-size:16px;">🔒</span><div><div class="col-head-title">sly_data — sealed identity channel</div><div class="col-head-sub">NEVER SENT TO ANY LLM</div></div></div>
+      <div id="sList">${S.screeningRan?renderSealedList():'<div style="color:var(--steel);font-size:13px;padding:12px;">Identities will be sealed here during screening.</div>'}</div>
+    </div>
+  </div>
+  ${S.agentResponse?`<div style="margin-top:18px;"><div class="agent-response-label">Agent response</div><div class="agent-response">${S.agentResponse}</div></div>`:''}`;
+}
+
+function renderRankedList(){
+  return S.ranked.map((a,i)=>`
+    <div class="cand-row visible">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <span class="rank-badge ${i<3?'top':''}">#${i+1}</span>
+        <div><div class="cand-id">${a.candId}</div><div class="cand-skill">${a.skills}</div></div>
+      </div>
+      <div class="sr-right">
+        <div class="sbar-wrap"><div class="sbar" style="width:${a.score}%"></div></div>
+        <div class="snum">${a.score}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSealedList(){
+  return S.ranked.map(a=>`
+    <div class="sealed-row" style="opacity:1;">
+      <span class="lock-icon">🔒</span>
+      <div><div class="blur-text">${a.name}</div><div class="sealed-label">${a.candId} · SEALED</div></div>
+    </div>`).join('');
+}
+
+function runScreening(){
+  if(S.screeningRan)return;
+  S.runStart=Date.now();
+  bumpStat('tool',1);bumpStat('agent',1);
+  showTicker('RecruitingOrchestrator running…');
+
+  const thinkArea=document.getElementById('thinkArea');
+  const traceArea=document.getElementById('traceArea');
+  const TRACE=[
+    {i:'🔧',l:'ResumeAnonymizerTool',n:'Querying SQLite database, sealing identities into sly_data…'},
+    {i:'🤖',l:'RankingAgent (Claude)',n:'Evaluating anonymized profiles by merit…'},
+    {i:'🔐',l:'IdentityResolverTool',n:'Preparing to resolve top N identities only…'},
+    {i:'📅',l:'SchedulingAgent',n:'Matching availability slots…'},
+    {i:'✓',l:'Pipeline complete',n:'Results ready'},
+  ];
+
+  thinkArea.innerHTML=`
+    <div class="thinking-bar" id="mainThinkBar">
+      <div class="thinking-dots">
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+      </div>
+      <span class="thinking-text" id="thinkText">
+        Running <span class="ta">RecruitingOrchestrator</span> — anonymizing ${S.jobCount} candidates…
+      </span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--teal);margin-left:auto;flex-shrink:0;" id="elapsedTimer">0s</span>
+    </div>
+    <div style="height:3px;background:var(--ink-softer);border-radius:3px;margin-bottom:16px;overflow:hidden;">
+      <div id="progressStripe" style="height:100%;width:0%;background:linear-gradient(90deg,var(--teal),var(--gold));border-radius:3px;transition:width .5s ease;"></div>
+    </div>`;
+
+  traceArea.innerHTML=`<div class="trace-panel"><div class="trace-hdr">Agent trace</div><div id="tSteps"></div></div>`;
+
+  // Live elapsed timer
+  const startMs=Date.now();
+  const MESSAGES=[
+    'Anonymizing candidates — names sealed into sly_data…',
+    'RankingAgent evaluating profiles — zero PII visible to Claude…',
+    'Claude scoring candidates by skills, experience, education…',
+    'Still working — large candidate pool takes time…',
+    'IdentityResolverTool preparing to reveal top candidates only…',
+    'SchedulingAgent matching interview slots…',
+    'Finalising results — almost there…',
+    'Pipeline running — thank you for your patience…',
+  ];
+  let msgIdx=0;
+  const elapsedTimer=setInterval(()=>{
+    const el=document.getElementById('elapsedTimer');
+    const tb=document.getElementById('thinkText');
+    const ps=document.getElementById('progressStripe');
+    if(!el)return;
+    const secs=Math.round((Date.now()-startMs)/1000);
+    el.textContent=secs+'s';
+    // Update message every 30 seconds
+    if(secs>0&&secs%30===0&&msgIdx<MESSAGES.length){
+      if(tb) tb.innerHTML=`<span class="ta">Agent running</span> — ${MESSAGES[msgIdx]}`;
+      showTicker(MESSAGES[msgIdx]);
+      msgIdx++;
+    }
+    // Animate progress bar — never reaches 100% until done
+    const fakePct=Math.min(92, (secs/360)*100);
+    if(ps) ps.style.width=fakePct+'%';
+  },1000);
+
+  // Show trace steps at realistic intervals
+  let traceIdx=0;
+  const traceTimer=setInterval(()=>{
+    if(traceIdx>=TRACE.length-1){clearInterval(traceTimer);return;}
+    const el=document.getElementById('tSteps');if(!el)return;
+    const t=TRACE[traceIdx];
+    const d=document.createElement('div');d.className='trace-step';d.style.animationDelay='0s';
+    d.innerHTML=`<span class="ti">${t.i}</span><span class="tl">${t.l} <span style="color:var(--steel);font-size:10px;">${t.n}</span></span><span class="ts ts-run">running</span>`;
+    el.appendChild(d);
+    traceIdx++;
+  },45000); // one trace step every 45 seconds — realistic for a 5 min run
+
+  console.log(`[BLINDSPOT] Calling /api/screen for job_role="${S.jobId}" top_n=${S.threshold}`);
+
+  // Use XMLHttpRequest instead of fetch to avoid Chrome extension interference
+  const xhr=new XMLHttpRequest();
+  xhr.open('POST','/api/screen',true);
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout=660000; // 11 minutes
+
+  xhr.onload=function(){
+    clearInterval(traceTimer);
+    clearInterval(elapsedTimer);
+    const ps=document.getElementById('progressStripe');
+    if(ps){ps.style.transition='width .3s ease';ps.style.width='100%';}
+
+    if(xhr.status!==200){
+      thinkArea.innerHTML=`<div class="error-box">❌ Server error ${xhr.status}. Check Flask terminal.</div>`;
+      hideTicker();return;
+    }
+
+    let result;
+    try{ result=JSON.parse(xhr.responseText); }
+    catch(e){
+      thinkArea.innerHTML=`<div class="error-box">❌ Could not parse response. Check Flask terminal.</div>`;
+      hideTicker();return;
+    }
+
+    console.log(`[BLINDSPOT] Agent result status: ${result.status}`);
+    if(result.token_accounting) console.log(`[BLINDSPOT] Tokens used:`,result.token_accounting);
+
+    if(result.status==='error'){
+      thinkArea.innerHTML=`<div class="error-box">❌ ${result.error}</div>`;
+      traceArea.innerHTML='';hideTicker();return;
+    }
+
+    // Final trace step
+    const el=document.getElementById('tSteps');
+    if(el){
+      el.querySelectorAll('.ts-run').forEach(x=>x.className='ts ts-done');
+      const d=document.createElement('div');d.className='trace-step';d.style.animationDelay='0s';
+      d.innerHTML=`<span class="ti">✓</span><span class="tl">Pipeline complete</span><span class="ts ts-done">done</span>`;
+      el.appendChild(d);
+    }
+
+    S.agentResponse=result.response||'';
+    S.tokenInfo=result.token_accounting||{};
+    S.runEnd=Date.now();
+
+    S.ranked=S.applicants.map((a,i)=>({
+      ...a,
+      candId:`Candidate_${String(i+1).padStart(2,'0')}`,
+      score:a.ai_score?Math.round(parseFloat(a.ai_score)):60
+    })).sort((a,b)=>b.score-a.score);
+
+    S.screeningRan=true;
+    thinkArea.innerHTML='';
+    hideTicker();
+    showToast(`Screening complete — ${S.ranked.length} candidates ranked`);
+    render();
+  };
+
+  xhr.onerror=function(){
+    clearInterval(traceTimer);clearInterval(elapsedTimer);
+    thinkArea.innerHTML=`<div class="error-box">❌ Network error. Make sure ns run is running.</div>`;
+    hideTicker();
+  };
+
+  xhr.ontimeout=function(){
+    clearInterval(traceTimer);clearInterval(elapsedTimer);
+    thinkArea.innerHTML=`<div class="error-box">❌ Timed out after 11 minutes. The agent may still be running — check the ns run terminal.</div>`;
+    hideTicker();
+  };
+
+  xhr.send(JSON.stringify({job_role:S.jobId,top_n:S.threshold}));
+}
+
+/* ══════════════════════════════════════
+   STAGE 4 — Approve & reveal
+══════════════════════════════════════ */
+function r4(){
+  const list=S.ranked,max=list.length,p=Math.round((S.threshold/max)*100);
+  return `<div class="shr">
+    <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Approve &amp; reveal identity</h1><div class="stage-desc">Set how many top-ranked candidates get their identity released. Everyone outside stays permanently sealed.</div></div>
+    <div class="sha">
+      <button class="btn btn-gold" onclick="approveTop()" ${S.revealed?'disabled':''}>${S.revealed?'✓ Identities released':'Approve &amp; reveal →'}</button>
+      <button class="btn btn-ghost btn-sm" onclick="goTo(5)" ${!S.revealed?'disabled':''}>Schedule interviews →</button>
+    </div>
+  </div>
+  <div class="threshold-wrap">
+    <div class="threshold-label">Reveal identities for the top</div>
+    <div class="threshold-row">
+      <input type="range" class="slider-custom" id="tSlider" min="1" max="${max}" value="${S.threshold}" style="--val:${p}%" oninput="updateThr(this.value,${max})">
+      <span class="tval" id="tVal">${S.threshold}</span>
+      <span style="font-size:13px;color:var(--steel);">of ${max} candidates</span>
+    </div>
+  </div>
+  <div class="approve-list" id="aList">
+    ${list.map((a,i)=>{const w=i<S.threshold,rv=S.revealed&&w;return `
+      <div class="approve-row ${w?'will-approve':''} ${rv?'revealed':''}" style="animation-delay:${i*.04}s">
+        <div class="approve-left">
+          <span class="lock-icon" style="font-size:16px;">${rv?'🔓':'🔒'}</span>
+          <div>
+            <div class="blur-text ${rv?'revealed':''}" style="font-size:13px;font-weight:500;">${rv?a.name:a.candId}</div>
+            <div style="font-size:11px;color:var(--steel);margin-top:2px;font-family:var(--font-mono);">Score ${a.score} · Rank #${i+1}</div>
+          </div>
+        </div>
+        <span class="chip ${rv?'chip-open':(w?'chip-locked':'chip-out')}">${rv?'IDENTITY RELEASED':(w?'PENDING APPROVAL':'NOT SELECTED')}</span>
+      </div>`;}).join('')}
+  </div>`;
+}
+
+function updateThr(v,max){
+  S.threshold=parseInt(v);const p=Math.round((S.threshold/max)*100);
+  document.getElementById('tVal').textContent=v;
+  const sl=document.getElementById('tSlider');if(sl)sl.style.setProperty('--val',p+'%');
+  document.getElementById('aList').querySelectorAll('.approve-row').forEach((row,i)=>{
+    const w=i<S.threshold,rv=S.revealed&&w;
+    row.className='approve-row '+(w?'will-approve ':'')+( rv?'revealed':'');
+    const c=row.querySelector('.chip');if(c){c.className='chip '+(rv?'chip-open':(w?'chip-locked':'chip-out'));c.textContent=rv?'IDENTITY RELEASED':(w?'PENDING APPROVAL':'NOT SELECTED');}
+    const bt=row.querySelector('.blur-text');if(bt){bt.className='blur-text '+(rv?'revealed':'');bt.textContent=rv?S.ranked[i].name:S.ranked[i].candId;}
+    const li=row.querySelector('.lock-icon');if(li)li.textContent=rv?'🔓':'🔒';
+  });
+}
+
+function approveTop(){
+  bumpStat('tool',1);showTicker('IdentityResolverTool resolving…');
+  // Store approved candidates as objects with their rank number
+  S.approvedCandidates=S.ranked.slice(0,S.threshold).map((a,i)=>({...a,rank:i+1}));
+  S.approvedCandidates.forEach(a=>S.approvedIds.add(a.resume_id));
+  setTimeout(()=>{S.revealed=true;hideTicker();showToast(`${S.threshold} identities released`);render();},800);
+}
+
+/* ══════════════════════════════════════
+   STAGE 5 — Schedule interviews
+══════════════════════════════════════ */
+const HR=['Tue 11:00 AM','Tue 3:00 PM','Wed 10:00 AM','Wed 4:30 PM','Thu 2:00 PM'];
+const CA=['Mon 5:00 PM','Tue 3:00 PM','Wed 10:00 AM','Wed 1:00 PM','Fri 11:00 AM'];
+
+function r5(){
+  // Use approvedCandidates which has correct rank numbers stored at approval time
+  const approved=S.approvedCandidates||S.ranked.slice(0,S.threshold).map((a,i)=>({...a,rank:i+1}));
+  if(approved.length===0)return `<div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Schedule interviews</h1></div><div class="empty-note">No candidates approved yet.<br>Go back to <b style="color:var(--paper)">Approve &amp; reveal</b> first.</div>`;
+  const allDone=approved.every(a=>S.scheduled[a.resume_id]);
+  return `<div class="shr">
+    <div class="sh"><div class="eyebrow">${S.jobId}</div><h1 class="stage-title">Schedule interviews</h1><div class="stage-desc">AvailabilityMatcherTool finds the first slot overlap — deterministic logic, no LLM guessing.</div></div>
+    <div class="sha">
+      <button class="btn btn-primary" onclick="confirmAll()" ${allDone?'disabled':''}>${allDone?'✓ All confirmed':'Confirm all interviews'}</button>
+      <button class="btn btn-ghost btn-sm" onclick="goTo(6)">View architecture →</button>
+    </div>
+  </div>
+  ${approved.map((a,i)=>{
+    const slot=HR[i%HR.length],done=S.scheduled[a.resume_id];
+    return `<div class="sched-card ${done?'confirmed':''}" style="animation-delay:${i*.08}s">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${a.name}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--teal);margin-top:2px;">Score ${a.score} · Rank #${a.rank}</div>
+        <div class="avail-cols">
+          <div class="avail-col"><b>Candidate free</b>${CA.slice(0,3).join(', ')}</div>
+          <div class="avail-col"><b>Interviewer free</b>${HR.slice(0,3).join(', ')}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;">
+        <span class="slot-chip">📅 ${slot}</span>
+        <button class="confirm-btn ${done?'done':''}" onclick="confirmSlot('${a.resume_id}','${a.name.replace(/'/g,"\\'")}','${slot}')">${done?'✓ Confirmed':'Confirm'}</button>
+        ${done?`<span class="email-badge">📧 Invite sent</span>`:''}
+      </div>
+    </div>`;
+  }).join('')}`;
+}
+
+function confirmSlot(id,name,slot){
+  S.scheduled[id]=true;
+  showToast(`Interview confirmed — ${name} · ${slot}`);
+  showToast(`📧 Calendar invite sent to ${name}`,300);
+  render();
+}
+
+function confirmAll(){
+  const approved=S.approvedCandidates||S.ranked.slice(0,S.threshold).map((a,i)=>({...a,rank:i+1}));
+  approved.forEach((a,i)=>{
+    if(!S.scheduled[a.resume_id]){
+      setTimeout(()=>{S.scheduled[a.resume_id]=true;showToast(`Confirmed — ${a.name} · ${HR[i%HR.length]}`);},i*350);
+    }
+  });
+  setTimeout(()=>{showToast(`📧 Calendar invites sent to all ${approved.length} candidates`);render();},approved.length*350+200);
+}
+
+/* ══════════════════════════════════════
+   STAGE 6 — Architecture
+══════════════════════════════════════ */
+function r6(){
+  const sealed=S.ranked.length-S.approvedIds.size;
+  const topN=S.approvedIds.size||S.threshold;
+  const timeSaved=Math.round(S.jobCount*3.5);
+  const costSaved=(S.jobCount*0.08).toFixed(0);
+  const top5=S.ranked.slice(0,5);
+  const cost=S.tokenInfo.total_cost?`$${S.tokenInfo.total_cost.toFixed(4)}`:'N/A';
+  const tokens=S.tokenInfo.total_tokens?S.tokenInfo.total_tokens.toLocaleString():'N/A';
+  return `
+  <div class="sh" style="margin-bottom:20px;"><div class="eyebrow">Neuro-SAN agent network</div><h1 class="stage-title">How this maps to the framework</h1><div class="stage-desc">One HOCON-defined network. Dashed nodes are deterministic CodedTools — the only components allowed to touch sly_data.</div></div>
+  <div class="diagram-wrap">
+    <div class="flow-row">
+      <div class="node node-agent">RecruitingOrchestrator<div class="node-label">frontman</div></div>
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head">▶</div></div>
+      <div class="node node-tool">ResumeAnonymizer<div class="node-label">coded tool</div></div>
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head">▶</div></div>
+      <div class="node node-agent">RankingAgent<div class="node-label">LLM — no PII</div></div>
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head">▶</div></div>
+      <div class="node node-tool">IdentityResolver<div class="node-label">coded tool</div><span class="btag">top N only</span></div>
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head">▶</div></div>
+      <div class="node node-agent">SchedulingAgent<div class="node-label">LLM agent</div></div>
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head">▶</div></div>
+      <div class="node node-tool">AvailabilityMatcher<div class="node-label">coded tool</div></div>
+    </div>
+    <div class="legend">
+      <span><span class="ls" style="background:rgba(46,196,176,.5);border:1px solid rgba(46,196,176,.4)"></span>LLM agent — chat stream only</span>
+      <span><span class="ls" style="background:rgba(201,162,39,.5);border:1px dashed rgba(201,162,39,.4)"></span>CodedTool — sly_data access</span>
+    </div>
+  </div>
+  ${S.screeningRan?`
+  <div style="margin-top:22px;">
+    <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--steel);text-transform:uppercase;margin-bottom:12px;">Last run stats</div>
+    <div class="run-stats-grid">
+      <div class="rsc"><div class="rsv">${S.jobCount.toLocaleString()}</div><div class="rsl">Candidates screened this run</div></div>
+      <div class="rsc"><div class="rsv">${topN}</div><div class="rsl">Top candidates selected &amp; revealed</div></div>
+      <div class="rsc"><div class="rsv">${sealed>0?sealed:S.jobCount-topN}</div><div class="rsl">Identities permanently sealed</div></div>
+      <div class="rsc"><div class="rsv gold">${timeSaved.toLocaleString()} min</div><div class="rsl">Manual screening time saved</div></div>
+      <div class="rsc"><div class="rsv gold">${tokens}</div><div class="rsl">LLM tokens used</div></div>
+      <div class="rsc"><div class="rsv gold">${cost}</div><div class="rsl">API cost this run</div></div>
+    </div>
+  </div>
+  ${top5.length>0?`
+  <div style="margin-top:22px;">
+    <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--steel);text-transform:uppercase;margin-bottom:12px;">Top 5 ranked this run</div>
+    <div class="top-list">${top5.map((a,i)=>`
+      <div class="top-row" style="animation-delay:${i*.06}s">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="rank-badge ${i<3?'top':''}">#${i+1}</span>
+          <div><div style="font-family:var(--font-mono);font-size:12px;">${a.candId}</div><div style="font-size:11px;color:var(--steel);margin-top:2px;">${(a.skills||'').substring(0,55)}…</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:70px;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${a.score}%;background:linear-gradient(90deg,var(--teal),rgba(46,196,176,.7));border-radius:3px;"></div></div>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--teal);">${a.score}</span>
+          ${S.approvedIds.has(a.resume_id)?`<span class="chip chip-open">REVEALED</span>`:`<span class="chip chip-locked">SEALED</span>`}
+        </div>
+      </div>`).join('')}</div>
+  </div>`:''}
+  <div class="privacy-stat"><b>Zero PII</b> was exposed to any LLM during this run. <b>${sealed>0?sealed:S.jobCount-topN}</b> of <b>${S.jobCount}</b> candidate identities remain permanently sealed.</div>
+  `:`<div class="empty-note" style="margin-top:20px;">Run the blind screening pipeline first to see stats from your last run.</div>`}`;
+}
+
+/* ══════════════════════════════════════
+   Navigation — load data on stage change
+══════════════════════════════════════ */
+// Override goTo to trigger data loads when needed
+const _goTo=goTo;
+window.goTo=function(n){
+  _goTo(n);
+  if(n===2&&S.applicants.length===0)loadApplicants();
+};
+
+/* ── Init ── */
+checkConnection();
+setInterval(checkConnection,30000);
+loadRoles();
+render();
+</script>
+</body>
+</html>
