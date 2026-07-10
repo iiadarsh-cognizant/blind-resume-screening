@@ -19,6 +19,7 @@ Neuro SAN must be running in another terminal:
 import sqlite3
 import json
 import os
+import re
 import requests
 
 from flask import Flask, jsonify, request, render_template
@@ -289,6 +290,27 @@ def parse_neuro_san_response(raw_text):
     return final_text, token_accounting
 
 
+def extract_ranking_block(text):
+    """
+    Extract the <<<RANKING>>>...<<<END>>> JSON block from the agent's
+    final response text, if present. Returns None if the block is
+    missing or isn't valid JSON, so callers can fall back gracefully.
+    """
+    if not text:
+        return None
+
+    match = re.search(r"<<<RANKING>>>(.*?)<<<END>>>", text, re.DOTALL)
+    if not match:
+        return None
+
+    try:
+        return json.loads(match.group(1).strip())
+    except Exception as e:
+        print("[BLINDSPOT] Could not parse <<<RANKING>>> block as JSON:")
+        print(str(e))
+        return None
+
+
 # ── Neuro SAN proxy route ──────────────────────────────────
 
 @app.route("/api/screen", methods=["POST"])
@@ -316,7 +338,13 @@ def screen_candidates():
                 "error": "job_role is required"
             }), 400
 
-        human_message = f"Screen candidates for {job_role} and recommend top {top_n}"
+        human_message = (
+            f"Screen candidates for {job_role} and recommend top {top_n}. "
+            f"After your normal summary, also include the final ranked list wrapped exactly like this: "
+            f"<<<RANKING>>>[{{\"candidate_id\":\"Candidate_01\",\"name\":\"...\",\"score\":87,"
+            f"\"justification\":\"...\"}}, ...]<<<END>>> "
+            f"— a strict JSON array, best to worst, with no other text between the markers."
+        )
 
         print("=" * 70)
         print("[BLINDSPOT] /api/screen called")
@@ -394,9 +422,13 @@ def screen_candidates():
         print("[BLINDSPOT] Parsed token accounting:")
         print(token_accounting)
 
+        ranking = extract_ranking_block(final_response)
+        print(f"[BLINDSPOT] Structured ranking block parsed: {len(ranking) if ranking else 0} candidate(s)")
+
         return jsonify({
             "status": "complete",
             "response": final_response,
+            "ranking": ranking,
             "token_accounting": token_accounting
         })
 
