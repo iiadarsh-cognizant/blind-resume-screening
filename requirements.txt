@@ -1,0 +1,7 @@
+# Neuro SAN framework
+neuro-san-studio
+
+# Web backend
+flask>=3.0.0
+flask-cors>=4.0.0
+requests>=2.31.0
