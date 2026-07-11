@@ -197,6 +197,14 @@ The entire agent network is declared in `registries/blindspot.hocon`. Key design
 - Coded tools reference Python classes via the `class` field
 - Tool parameters are typed using JSON Schema — Neuro SAN validates at startup
 - The frontman (`RecruitingOrchestrator`) is the first tool in the `tools` array
+- The recruiter chooses how many candidates to approve **before** the run starts (a `top_n` field in the UI, default 3). `RecruitingOrchestrator` passes this straight through to `IdentityResolverTool`, so it's the same number that gets formally resolved and the same number the reveal slider is capped to afterward — there's no separate post-hoc "reveal more" path beyond what was actually resolved.
+- When the Flask web UI calls the pipeline, its request explicitly asks the orchestrator to also emit a `<<<RANKING>>>...<<<END>>>` block containing a strict JSON array (`candidate_id`, `name`, `score`, `justification`) for the approved candidates, in addition to its normal narrated summary. This gives the frontend a reliable, machine-parseable result instead of relying on scraping prose. Requests that don't ask for that block (e.g. a person chatting directly through Neuro SAN's own web client) simply get the normal narrated summary, unchanged.
+
+---
+
+## Ranking Basis
+
+Candidate ranking is produced **live by `RankingAgent`** at request time, based purely on the anonymized skills/experience/education/certifications/project-count fields it receives — it is not a lookup against a pre-computed dataset column. The CSV's original `AI Score (0-100)` field is retained in the database purely as descriptive source data (and as a same-source ordering fallback for the small remainder of candidates the agent doesn't individually name), not as the mechanism that decides the ranking recruiters see.
 
 ---
 
@@ -210,16 +218,17 @@ At no point during the pipeline does any LLM agent receive:
 
 This guarantee is **structural** — enforced by the Neuro SAN `sly_data` architecture — not prompt-level. Even if the LLM were instructed to reveal names, it would have no names to reveal.
 
-The `IdentityResolverTool` logs every release:
+The `IdentityResolverTool` logs every release, e.g.:
 ```
-[BLINDSPOT] 3 identities released. 507 candidates permanently sealed.
+[BLINDSPOT] 3 identities released. 47 candidates permanently sealed.
 ```
+(exact counts depend on the job role's applicant pool size and the top-N value chosen for that run)
 
 ---
 
 ## Dataset
 
-**AI-Powered Resume Screening Dataset (2025)** from Kaggle  
+**AI-Powered Resume Screening Dataset (2025)** from Kaggle
 Source: https://www.kaggle.com/datasets/mdtalhask/ai-powered-resume-screening-dataset-2025
 
 | Field | Description |
@@ -231,6 +240,15 @@ Source: https://www.kaggle.com/datasets/mdtalhask/ai-powered-resume-screening-da
 | Education | Highest education level |
 | Certifications | Professional certifications |
 | Job Role | Target role (used for filtering) |
-| AI Score (0-100) | Pre-computed score used as ranking basis |
+| AI Score (0-100) | Original dataset score, kept as reference/fallback data — not the live ranking mechanism (see "Ranking Basis" above) |
 
-Total records: 2,000 across 4 job roles (AI Researcher, Cybersecurity Analyst, Data Scientist, Software Engineer)
+Current local database (`data/blindspot.db`):
+
+| Job Role | Candidates |
+|---|---|
+| AI Researcher | 514 |
+| Cybersecurity Analyst | 510 |
+| Data Scientist | 510 |
+| Software Engineer | 50 *(trimmed down for cost-efficient local testing — see README)* |
+
+**Total: 1,584 candidates.** Counts will differ if you regenerate the database from the full Kaggle CSV via `setup_database.py` without trimming.
