@@ -35,10 +35,9 @@ blind-resume-screening/
 │       ├── identity_resolver.py             # Reveals only top-N identities
 │       └── availability_matcher.py          # Deterministic calendar matching
 ├── registries/
-│   ├── manifest.hocon                       # Agent registry
+│   ├── aaosa.hocon                          
 │   ├── blindspot.hocon                      # Agent network definition
-│   └── generated/
-│       └── manifest.hocon
+│   ├── manifest.hocon                       # Agent registry
 ├── webapp/
 │   ├── app.py                               # Flask backend — proxies to Neuro SAN
 │   ├── requirements.txt
