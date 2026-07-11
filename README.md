@@ -47,6 +47,7 @@ blind-resume-screening/
 │   └── llm_config.hocon                     # LLM provider config
 ├── setup_database.py                        # One-time database setup script
 └── data/
+    └── blindspot.db                         # created using Kaggle .csv dataset
     └── resume_screening.csv                 # Kaggle dataset (not committed)
 ```
 
@@ -103,7 +104,7 @@ Press `Win + R`, type `rundll32 sysdm.cpl,EditEnvironmentVariables`, add a User 
 export ANTHROPIC_API_KEY="sk-ant-your-key-here"
 ```
 
-### Step 5 — Download the dataset
+### Step 5 — Download the dataset / or use existing dataset provided in data folder
 
 Download from: https://www.kaggle.com/datasets/mdtalhask/ai-powered-resume-screening-dataset-2025
 
@@ -112,7 +113,7 @@ Place the CSV file at:
 data/resume_screening.csv
 ```
 
-### Step 6 — Set up the database
+### Step 6 — Set up the database / Not needed if using existing blindspot.db from data folder
 
 ```bash
 python setup_database.py
@@ -173,7 +174,7 @@ The green **"Neuro SAN connected"** badge in the top bar confirms both services 
 
 1. **Open roles** — Select a job role (e.g., Data Scientist)
 2. **Applicant pool** — View all real applicants with full identity visible
-3. **Blind screening** — Click "Run ranking agent". Claude evaluates candidates with zero PII. Watch the live timer and trace panel during the ~5 minute run.
+3. **Blind screening** — Click "Run ranking agent". Claude evaluates candidates with zero PII. Watch the live timer and trace panel during the execution.
 4. **Approve & reveal** — Drag the slider to choose top-N. Click "Approve & reveal" to release only those identities.
 5. **Schedule interviews** — Confirm interview slots one by one or all at once.
 6. **Agent network** — View the architecture diagram and real run statistics.
@@ -194,11 +195,32 @@ To change the LLM model, edit `config/llm_config.hocon`:
 
 ---
 
+## Files included in this repo 
+- `data/blindspot.db` — generated locally by `setup_database.py`
+- `data/resume_screening.csv` — download from Kaggle
+
 ## Files NOT included in this repo
 
 These are excluded via `.gitignore` for security and size reasons:
-- `data/blindspot.db` — generated locally by `setup_database.py`
-- `data/resume_screening.csv` — download from Kaggle
 - `.env` — contains your API key
 - `venv/` — created locally
 - `__pycache__/` — generated at runtime
+
+
+## Limitations & Future Work
+
+Blindspot is a working prototype built to demonstrate a privacy-first agent architecture, not a production ATS. Known limitations:
+- **Single-pass ranking** — `RankingAgent` scores the full candidate pool once, with no iterative self-critique or multi-pass consensus scoring. The token-accounting audit trail provides observability, but not an evaluation loop in the strict sense.
+- **Free-text response parsing** — the ranked list is extracted from the orchestrator's final message via a structured `<<<RANKING>>>` JSON block, with a markdown-regex parser and a raw score-sort as fallbacks. This is robust in practice but not schema-guaranteed, since the underlying response is still LLM-generated text.
+- **Run time and cost** — a full screening run takes ~2-3 minutes and consumes a non-trivial number of tokens per job role, since all candidates are evaluated in a single pipeline pass. This doesn't obviously scale to thousands of candidates without batching or a cheaper pre-filter stage.
+- **Static, hardcoded scheduling data** — `AvailabilityMatcherTool` matches against fixed sample calendars rather than a live calendar integration.
+- **Single job role per run** — the pipeline screens one role at a time; there's no cross-role batch mode or comparative dashboard.
+- **Demo dataset** — built on a static Kaggle CSV, not connected to a real applicant tracking system.
+
+Planned improvements:
+
+- Integrate real calendar APIs (Google Calendar / Outlook) in place of hardcoded availability windows
+- Add an iterative evaluation loop — e.g., a second-pass "critique" agent that reviews `RankingAgent`'s justifications before finalizing scores
+- Persist run history and token accounting to the database for a durable audit trail, instead of console-only logging
+- Support multi-role batch screening in a single run
+- Replace text-based ranking extraction with a fully schema-enforced structured output once broader tool/function-calling support stabilizes in Neuro SAN
