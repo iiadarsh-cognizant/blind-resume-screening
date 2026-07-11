@@ -1,4 +1,4 @@
-# Blindspot — Bias-Free Blind Hiring Pipeline
+# Blindspot — Bias-Free Blind Hiring Pipeline  By Adarsh Kumar
 
 > A privacy-first multi-agent system that ranks job candidates without ever exposing their identity to any LLM, using Neuro SAN's `sly_data` mechanism as a cryptographic-style privacy firewall.
 
