@@ -195,7 +195,7 @@ To change the LLM model, edit `config/llm_config.hocon`:
 
 ---
 
-## Files included in this repo 
+## Data Files included in this repo 
 - `data/blindspot.db` — generated locally by `setup_database.py`
 - `data/resume_screening.csv` — download from Kaggle
 
